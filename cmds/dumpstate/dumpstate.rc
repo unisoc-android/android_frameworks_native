@@ -5,7 +5,7 @@ on boot
 
 service dumpstate /system/bin/dumpstate -s
     class main
-    socket dumpstate stream 0660 shell log
+    socket dumpstate stream 0660 root root
     disabled
     oneshot
 
@@ -20,6 +20,12 @@ service dumpstatez /system/bin/dumpstate -S -d -z \
 
 # bugreportd starts dumpstate binder service and makes it wait for a listener to connect.
 service bugreportd /system/bin/dumpstate -w
+    class main
+    disabled
+    oneshot
+
+# Bug 1194677 [SDBG] Print CpuInfo.
+service sprd-rt-cpuinfo /system/bin/dumpstate -c
     class main
     disabled
     oneshot

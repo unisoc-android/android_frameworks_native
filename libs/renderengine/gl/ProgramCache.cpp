@@ -659,15 +659,6 @@ String8 ProgramCache::generateFragmentShader(const Key& needs) {
     if (needs.isOpaque()) {
         fs << "gl_FragColor.a = 1.0;";
     }
-    if (needs.hasAlpha()) {
-        // modulate the current alpha value with alpha set
-        if (needs.isPremultiplied()) {
-            // ... and the color too if we're premultiplied
-            fs << "gl_FragColor *= color.a;";
-        } else {
-            fs << "gl_FragColor.a *= color.a;";
-        }
-    }
 
     if (needs.hasTransformMatrix() || (needs.getInputTF() != needs.getOutputTF())) {
         if (!needs.isOpaque() && needs.isPremultiplied()) {
@@ -680,6 +671,16 @@ String8 ProgramCache::generateFragmentShader(const Key& needs) {
         if (!needs.isOpaque() && needs.isPremultiplied()) {
             // and re-premultiply if needed after gamma correction
             fs << "gl_FragColor.rgb = gl_FragColor.rgb * (gl_FragColor.a + 0.0019);";
+        }
+    }
+
+    if (needs.hasAlpha()) {
+        // modulate the current alpha value with alpha set
+        if (needs.isPremultiplied()) {
+            // ... and the color too if we're premultiplied
+            fs << "gl_FragColor *= color.a;";
+        } else {
+            fs << "gl_FragColor.a *= color.a;";
         }
     }
 

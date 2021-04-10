@@ -546,6 +546,9 @@ void SurfaceComposerClient::Transaction::setEarlyWakeup() {
 }
 
 layer_state_t* SurfaceComposerClient::Transaction::getLayerState(const sp<SurfaceControl>& sc) {
+    bool err = (sc != 0) && sc->isValid();
+    if (err != true) return NULL;
+
     if (mComposerStates.count(sc) == 0) {
         // we don't have it, add an initialized layer_state to our list
         ComposerState s;
@@ -601,6 +604,8 @@ SurfaceComposerClient::Transaction& SurfaceComposerClient::Transaction::setSize(
     s->what |= layer_state_t::eSizeChanged;
     s->w = w;
     s->h = h;
+    if (s->h >= 10080)
+        ALOGE("SurfaceComposerClient::Transaction::setSize s->w:h = %4u,%4u, setting w:h= %4u,%4u", s->w, s->h, w, h);
 
     registerSurfaceControlForCallback(sc);
     return *this;

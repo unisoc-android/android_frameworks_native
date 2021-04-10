@@ -612,6 +612,7 @@ private:
     // resources associated to this layer.
     void onHandleDestroyed(sp<Layer>& layer);
     void markLayerPendingRemovalLocked(const sp<Layer>& layer);
+    void markLayerRemovedFromBufferQueueLocked(const sp<Layer>& layer);
 
     // add a layer to SurfaceFlinger
     status_t addClientLayer(const sp<Client>& client, const sp<IBinder>& handle,
@@ -926,6 +927,10 @@ private:
     SortedVector<sp<Layer>> mLayersPendingRemoval;
     bool mTraversalNeededMainThread = false;
 
+    //access must be protected by mPendingRemovedBufferLock
+    mutable Mutex mPendingRemovedBufferLock;
+    SortedVector<sp<Layer>> mLayersRemovedFromBufferQueue;
+
     // guards access to the mDrawing state if tracing is enabled.
     mutable std::mutex mDrawingStateLock;
 
@@ -969,6 +974,8 @@ private:
     std::array<sp<Fence>, 2> mPreviousPresentFences = {Fence::NO_FENCE, Fence::NO_FENCE};
     // True if in the previous frame at least one layer was composed via the GPU.
     bool mHadClientComposition = false;
+    int mPendingConfig = -1;
+    int mEnabledSR = 0;
     // True if in the previous frame at least one layer was composed via HW Composer.
     // Note that it is possible for a frame to be composed via both client and device
     // composition, for example in the case of overlays.
@@ -1167,6 +1174,9 @@ private:
     // The Layer pointer is removed from the set when the destructor is called so there shouldn't
     // be any issues with a raw pointer referencing an invalid object.
     std::unordered_set<Layer*> mOffscreenLayers;
+    bool mSkipSRFrame = false;
+    int mSRSwitchBegin = -1000;
+    int mSRSwitchEnd = -2000;
 };
 
 } // namespace android

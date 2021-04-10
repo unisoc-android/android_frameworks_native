@@ -8,16 +8,16 @@
 //#define LOG_NDEBUG 0
 
 // Log debug messages about channel messages (send message, receive message)
-#define DEBUG_CHANNEL_MESSAGES 0
+#define DEBUG_CHANNEL_MESSAGES 1
 
 // Log debug messages whenever InputChannel objects are created/destroyed
-#define DEBUG_CHANNEL_LIFECYCLE 0
+#define DEBUG_CHANNEL_LIFECYCLE 1
 
 // Log debug messages about transport actions
-#define DEBUG_TRANSPORT_ACTIONS 0
+#define DEBUG_TRANSPORT_ACTIONS 1
 
 // Log debug messages about touch event resampling
-#define DEBUG_RESAMPLING 0
+#define DEBUG_RESAMPLING 1
 
 #include <errno.h>
 #include <fcntl.h>
@@ -34,6 +34,12 @@
 #include <utils/Trace.h>
 
 #include <input/InputTransport.h>
+
+// SPRD: Switch debug log by command @{
+static bool gInputTransportLog = false;
+#undef ALOGD
+#define ALOGD(...) if (gInputTransportLog) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+/// @}
 
 using android::base::StringPrintf;
 
@@ -74,6 +80,9 @@ static const nsecs_t RESAMPLE_MAX_PREDICTION = 8 * NANOS_PER_MS;
  * Resampling is enabled by default.
  */
 static const char* PROPERTY_RESAMPLING_ENABLED = "ro.input.resampling";
+
+// Sprd Debug: add ProcessName & PID for debug socket leak
+void setSocketName(int tag, int socket0, int socket1);
 
 template<typename T>
 inline static T min(const T& a, const T& b) {
@@ -265,6 +274,13 @@ status_t InputChannel::openInputChannelPair(const std::string& name,
         return result;
     }
 
+    // [SDBG]: Set a name for socket, which is used for debug socket leak
+    char value[PROPERTY_VALUE_MAX];
+    property_get("ro.debuggable", value, "");
+    if (strcmp(value, "1") == 0) {
+         setSocketName(1, sockets[0], sockets[1]);
+    }
+
     int bufferSize = SOCKET_BUFFER_SIZE;
     setsockopt(sockets[0], SOL_SOCKET, SO_SNDBUF, &bufferSize, sizeof(bufferSize));
     setsockopt(sockets[0], SOL_SOCKET, SO_RCVBUF, &bufferSize, sizeof(bufferSize));
@@ -404,6 +420,10 @@ void InputChannel::setToken(const sp<IBinder>& token) {
         ALOGE("Assigning InputChannel (%s) a second handle?", mName.c_str());
     }
     mToken = token;
+}
+
+void InputChannel::switchInputTransportLog(bool enable) {
+    gInputTransportLog = enable;
 }
 
 // --- InputPublisher ---

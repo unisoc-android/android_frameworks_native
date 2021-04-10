@@ -940,6 +940,12 @@ static int validate_apk_path_internal(const std::string& path, int maxSubdirs) {
             modified.replace(0, end + 1, android_data_dir);
             return validate_apk_path_internal(modified, maxSubdirs);
         }
+    //SPRD: add sprd installd @{
+    } else if (validate_path(android_app_preload_dir, path, maxSubdirs) == 0) {
+        return 0;
+    } else if (validate_path(android_app_vital_dir, path, maxSubdirs) == 0) {
+        return 0;
+    // @}
     }
     return -1;
 }
@@ -1150,6 +1156,235 @@ void drop_capabilities(uid_t uid) {
         exit(DexoptReturnCodes::kCapSet);
     }
 }
+
+/* SPRD: add api for backupapp and restorepp {@ */
+static int copy_file(const char* src, const char* dest, arg_chown* arg) {
+        FILE *fpSrc, *fpDest;
+        fpSrc = fopen(src, "rb");
+        if (fpSrc == NULL) {
+                ALOGE( "Source file open failure.\n");
+                return -1;
+        }
+        fpDest = fopen(dest, "wb");
+        if (fpDest == NULL) {
+                ALOGE("Destination file open failure.\n");
+                fclose(fpSrc);
+                return -1;
+        }
+        int c;
+        while ((c = fgetc(fpSrc)) != EOF) {
+               fputc(c, fpDest);
+        }
+        fclose(fpSrc);
+        fclose(fpDest);
+        if (arg != NULL) {
+                if (chmod(dest, arg->mode) < 0) {
+                        ALOGE("cannot chmod file '%s': %s\n", dest, strerror(errno));
+                }
+                if (chown(dest, arg->uid, arg->gid) < 0) {
+                       ALOGE("cannot chown file '%s': %s\n", dest, strerror(errno));
+                }
+        }
+        return 0;
+}
+
+static inline int is_dir(const char* path) {
+        if (access(path, 0))
+               return 0;
+        struct stat info;
+        if(stat(path, &info))
+            return 0;
+        return S_ISDIR(info.st_mode);
+}
+
+static size_t file_name_predeal(char* new_name, const char* name) {
+        strlcpy(new_name, name, PKG_PATH_MAX);
+        size_t index = strlen(name) - 1;
+        if (new_name[index] != '/') {
+                new_name[++index] = '/';
+        }
+        new_name[++index] = '\0';
+        return index;
+}
+
+static int create_dir(const char* name, arg_chown* arg) {
+        if (mkdir(name, 0777) < 0) {
+                ALOGE("dest folder: %s can't create, %s\n", name, strerror(errno));
+                return -1;
+        }
+        if (arg != NULL) {
+                if (chmod(name, arg->mode) < 0) {
+                        ALOGE("cannot chmod file '%s': %s\n", name, strerror(errno));
+                }
+                if (chown(name, arg->uid, arg->gid) < 0) {
+                        ALOGE("can not chown file '%s': %s\n", name, strerror(errno));
+                }
+        }
+        return 0;
+}
+
+static int _copy_folder(const char* src, const char* dest, char is_copy_lib,
+              arg_chown* arg) {
+        if (!is_dir(src)) {
+                ALOGE("file: %s is not a folder!\n", src);
+                return -2;
+        }
+        if (!is_dir(dest) && create_dir(dest, arg) < 0) {
+                return -1;
+        }
+        char srcfile_name[PKG_PATH_MAX];
+        size_t src_index = file_name_predeal(srcfile_name, src);
+        char destfile_name[PKG_PATH_MAX];
+        size_t dest_index = file_name_predeal(destfile_name, dest);
+        char* tmpp;
+
+        DIR *d = opendir(src);
+        if (d == NULL) {
+                ALOGE("in backup_app, Unable to opendir %s\n", src);
+                return -1;
+        }
+        struct dirent *de;
+        while ((de = readdir(d))) {
+                const char *name = de->d_name;
+                if (!strcmp(name, ".") || !strcmp(name, "..")) {
+                        continue;
+                }
+                if (!is_copy_lib && !strcmp(name, "lib")) {
+                        continue;
+                }
+                tmpp = srcfile_name + src_index;
+                strlcpy(tmpp, name, PKG_PATH_MAX);
+                tmpp = destfile_name + dest_index;
+                strlcpy(tmpp, name, PKG_PATH_MAX);
+                switch (de->d_type) {
+                case DT_DIR:
+                        if (access(destfile_name, 0) == 0
+                                       || create_dir(destfile_name, arg) >= 0) {
+                               _copy_folder(srcfile_name, destfile_name, 1, arg);
+                        }
+                        break;
+               case DT_REG:
+                       if (copy_file(srcfile_name, destfile_name, arg) < 0) {
+                             ALOGW("copy file from %s to %s failed\n", srcfile_name, destfile_name);
+                        }
+                        break;
+               }
+        }
+        closedir(d);
+        return 0;
+}
+
+static int copy_folder(const char* src, const char* dest, char is_copy_lib,
+              arg_chown* arg) {
+        ALOGD("copy folder from %s to %s\n", src, dest);
+        if (arg->uid < 0 || arg->gid < 0) {
+              arg = NULL;
+        }
+        return _copy_folder(src, dest, is_copy_lib, arg);
+}
+
+int create_pkg_path(char path[PKG_PATH_MAX], const char *pkgname,
+        const char *postfix, userid_t userid) {
+    if (!is_valid_package_name(pkgname)) {
+        path[0] = '\0';
+        return -1;
+    }
+
+    std::string _tmp(create_data_user_ce_package_path(nullptr, userid, pkgname) + postfix);
+    const char* tmp = _tmp.c_str();
+    if (strlen(tmp) >= PKG_PATH_MAX) {
+        path[0] = '\0';
+        return -1;
+    } else {
+        strlcpy(path, tmp, PKG_PATH_MAX);
+        return 0;
+    }
+}
+
+int _backup_app(const char* pkgname, const char* dest_path, int uid, int gid) {
+        char pkgdir[PKG_PATH_MAX];
+        if (create_pkg_path(pkgdir, pkgname, "", 0)) {
+                ALOGE("in backup_app, cannot create package path\n");
+                return -1;
+        }
+        arg_chown arg;
+        arg.mode = 0771;
+        arg.uid = uid;
+        arg.gid = gid;
+        return copy_folder(pkgdir, dest_path, 0, &arg);
+}
+
+int _restore_app(const char* src_path, const char* pkgname, int uid, int gid) {
+        char pkgdir[PKG_PATH_MAX];
+        if (create_pkg_path(pkgdir, pkgname, "", 0)) {
+                ALOGE("in restore_app, cannot create package path\n");
+                return -1;
+        }
+        arg_chown arg;
+        arg.mode = 0771;
+        arg.uid = uid;
+        arg.gid = gid;
+        return copy_folder(src_path, pkgdir, 1, &arg);
+}
+/* @} */
+
+int _copy_file_to_dir(const char* src_file, const char* tar_file, const char* tar_dir, const char* pkgname,
+        int uid, int gid) {
+    char pkgdir[PKG_PATH_MAX];
+    if (create_pkg_path(pkgdir, pkgname, "", 0)) {
+        ALOGE("in copy_file_to_folder, cannot create package path\n");
+        return -1;
+    }
+    arg_chown arg;
+    arg.mode = 0771;
+    arg.uid = uid;
+    arg.gid = gid;
+
+    if (!is_dir(pkgdir) && create_dir(pkgdir, &arg) < 0) {
+        return -1;
+    }
+
+    if (access(tar_dir, 0) == 0 || create_dir(tar_dir, &arg) < 0) {
+        return -1;
+    }
+
+    if (copy_file(src_file, tar_file, &arg) < 0) {
+        ALOGW("copy file from %s to %s failed\n", src_file, tar_file);
+        return -1;
+    }
+    return 0;
+}
+
+/* SPRD: add for adjust whether volumeuuid is SD Card or not {@*/
+bool convertUuidController(){
+    ALOGW("ENTER converUuidController!\n");
+    if(property_get_bool("persist.storage.uuid_convert", false)) return true;
+    //There is something throng for primary_physical,so enable it when primary_physical
+    char storageType[PROPERTY_VALUE_MAX];
+
+    property_get("persist.storage.type", storageType, "2");
+    if(strtol(storageType, NULL, 10) == 1) return true;
+    return false;
+}
+
+bool CONVERT_UUID_CONTROLLER = convertUuidController();
+
+int isPublicSdCard(const char* volume_uuid){
+    if(!CONVERT_UUID_CONTROLLER || volume_uuid == nullptr) return false;
+    std::string fsuuid = getSdcardPath().replace(0,9,"");
+    const char* fs_uuid = fsuuid.c_str();
+    ALOGW("sd fsuuid is %s ,the volume_uuid is %s \n", fs_uuid, volume_uuid);
+    if(fs_uuid != NULL && !strcmp(fs_uuid, volume_uuid)) return true;
+    //Todo multi-patitons sdcard
+    return false;
+}
+
+std::string getSdcardPath(){
+     char sdCardPath[PROPERTY_VALUE_MAX];
+     property_get("vold.sdcard0.path", sdCardPath, "/storage/sdcard0");
+     return sdCardPath;
+}
+/* @} */
 
 }  // namespace installd
 }  // namespace android

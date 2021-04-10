@@ -24,10 +24,12 @@
 #include <unistd.h>
 
 #include <utils/Errors.h>
+#include <cutils/properties.h>
 
 #include <binder/Parcel.h>
 
 namespace android {
+void setSocketName(int flag, int socket0, int socket1);
 namespace gui {
 
 // Socket buffer size.  The default is typically about 128KB, which is much larger than we really
@@ -57,6 +59,12 @@ void BitTube::init(size_t rcvbuf, size_t sndbuf) {
         fcntl(sockets[1], F_SETFL, O_NONBLOCK);
         mReceiveFd.reset(sockets[0]);
         mSendFd.reset(sockets[1]);
+        //[SDBG]: Set a name for socket, which is used for debug FD leak
+        char value[PROPERTY_VALUE_MAX];
+        property_get("ro.debuggable", value, "");
+        if (strcmp(value, "1") == 0) {
+            setSocketName(0, sockets[0], sockets[1]);
+        }
     } else {
         mReceiveFd.reset();
         ALOGE("BitTube: pipe creation failed (%s)", strerror(errno));

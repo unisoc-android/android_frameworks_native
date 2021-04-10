@@ -454,6 +454,7 @@ private:
     // When true, the we attach to the vr_hwcomposer service instead of the
     // hwcomposer. This allows us to redirect surfaces to 3d surfaces in vr.
     const bool mIsUsingVrComposer;
+    int mEnabledSR = 0;
 };
 
 } // namespace impl

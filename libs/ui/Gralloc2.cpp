@@ -119,10 +119,10 @@ status_t Gralloc2Mapper::createDescriptor(void* bufferDescriptorInfo,
             static_cast<IMapper::BufferDescriptorInfo*>(bufferDescriptorInfo);
     BufferDescriptor* outDescriptor = static_cast<BufferDescriptor*>(outBufferDescriptor);
 
-    status_t status = validateBufferDescriptorInfo(descriptorInfo);
-    if (status != NO_ERROR) {
-        return status;
-    }
+   // status_t status = validateBufferDescriptorInfo(descriptorInfo);
+   // if (status != NO_ERROR) {
+   //     return status;
+   // }
 
     Error error;
     auto hidl_cb = [&](const auto& tmpError, const auto& tmpDescriptor)

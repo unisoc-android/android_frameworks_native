@@ -20,7 +20,6 @@
 #include <gmock/gmock.h>
 #include <ui/GraphicBuffer.h>
 
-
 namespace android::compositionengine::mock {
 
 class RenderSurface : public compositionengine::RenderSurface {

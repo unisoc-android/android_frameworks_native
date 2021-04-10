@@ -2816,6 +2816,48 @@ binder::Status InstalldNativeService::prepareAppProfile(const std::string& packa
     return ok();
 }
 
+/* SPRD: backup and restore api {@ */
+binder::Status InstalldNativeService::backupApp(
+            const std::string& pkgName, const std::string& destPath,
+            int32_t callUid, int32_t callGid, int32_t* _aidl_return){
+    CHECK_ARGUMENT_PACKAGE_NAME(pkgName);
+    std::lock_guard<std::recursive_mutex> lock(mLock);
+
+    const char* packageName = pkgName.c_str();
+    const char* destPathDir = destPath.c_str();
+    *_aidl_return = _backup_app(packageName, destPathDir, callUid, callGid);
+    return ok();
+}
+
+binder::Status InstalldNativeService::restoreApp(
+            const std::string& sourcePath, const std::string& pkgName,
+            int32_t uid, int32_t gid, int32_t* _aidl_return){
+    CHECK_ARGUMENT_PACKAGE_NAME(pkgName);
+    std::lock_guard<std::recursive_mutex> lock(mLock);
+
+    const char* sourcePathDir = sourcePath.c_str();
+    const char* packageName = pkgName.c_str();
+    *_aidl_return = _restore_app(sourcePathDir, packageName, uid, gid);
+    return ok();
+}
+/* @} */
+
+binder::Status InstalldNativeService::copyFileToDir(
+            const std::string& sourceFile, const std::string& targetFile,
+            const std::string& targetDir, const std::string& pkgName,
+            int32_t uid, int32_t gid, int32_t* _aidl_return){
+    CHECK_ARGUMENT_PACKAGE_NAME(pkgName);
+    std::lock_guard<std::recursive_mutex> lock(mLock);
+
+    const char* source_file = sourceFile.c_str();
+    const char* target_file = targetFile.c_str();
+    const char* target_dir = targetDir.c_str();
+    const char* packageName = pkgName.c_str();
+
+    *_aidl_return = _copy_file_to_dir(source_file, target_file, target_dir, packageName, uid, gid);
+    return ok();
+}
+
 binder::Status InstalldNativeService::migrateLegacyObbData() {
     ENFORCE_UID(AID_SYSTEM);
     // NOTE: The lint warning doesn't apply to the use of system(3) with

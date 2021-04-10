@@ -148,7 +148,7 @@ int binder_become_context_manager(struct binder_state *bs)
 {
     struct flat_binder_object obj;
     memset(&obj, 0, sizeof(obj));
-    obj.flags = FLAT_BINDER_FLAG_TXN_SECURITY_CTX;
+    obj.flags = FLAT_BINDER_FLAG_TXN_SECURITY_CTX | 0x800;
 
     int result = ioctl(bs->fd, BINDER_SET_CONTEXT_MGR_EXT, &obj);
 

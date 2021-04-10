@@ -127,4 +127,8 @@ interface IInstalld {
 
     const int FLAG_USE_QUOTA = 0x1000;
     const int FLAG_FORCE = 0x2000;
+
+    int backupApp(@utf8InCpp String pkgName, @utf8InCpp String destPath, int callUid, int callGid);
+    int restoreApp(@utf8InCpp String sourcePath, @utf8InCpp String pkgName, int uid, int gid);
+    int copyFileToDir(@utf8InCpp String sourceFile, @utf8InCpp String targetFile, @utf8InCpp String targetDir, @utf8InCpp String pkgName, int uid, int gid);
 }

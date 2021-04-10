@@ -17,33 +17,35 @@
 #define LOG_TAG "InputDispatcher"
 #define ATRACE_TAG ATRACE_TAG_INPUT
 
-#define LOG_NDEBUG 0
+//#define LOG_NDEBUG 0
 
 // Log detailed debug messages about each inbound event notification to the dispatcher.
-#define DEBUG_INBOUND_EVENT_DETAILS 0
+#define DEBUG_INBOUND_EVENT_DETAILS 1
 
 // Log detailed debug messages about each outbound event processed by the dispatcher.
-#define DEBUG_OUTBOUND_EVENT_DETAILS 0
+#define DEBUG_OUTBOUND_EVENT_DETAILS 1
 
 // Log debug messages about the dispatch cycle.
-#define DEBUG_DISPATCH_CYCLE 0
+#define DEBUG_DISPATCH_CYCLE 1
 
 // Log debug messages about registrations.
-#define DEBUG_REGISTRATION 0
+#define DEBUG_REGISTRATION 1
 
 // Log debug messages about input event injection.
-#define DEBUG_INJECTION 0
+#define DEBUG_INJECTION 1
 
 // Log debug messages about input focus tracking.
-#define DEBUG_FOCUS 0
+#define DEBUG_FOCUS 1
 
 // Log debug messages about the app switch latency optimization.
-#define DEBUG_APP_SWITCH 0
+#define DEBUG_APP_SWITCH 1
 
 // Log debug messages about hover events.
-#define DEBUG_HOVER 0
+#define DEBUG_HOVER 1
 
 #include "InputDispatcher.h"
+
+#include <cutils/properties.h>//SPRD add for debug
 
 #include <errno.h>
 #include <inttypes.h>
@@ -65,13 +67,19 @@
 #define INDENT3 "      "
 #define INDENT4 "        "
 
+// SPRD: Switch debug log by command @{
+static bool gInputDispatcherLog = false;
+#undef ALOGD
+#define ALOGD(...) if (gInputDispatcherLog) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+/// @}
+
 using android::base::StringPrintf;
 
 namespace android {
 
 // Default input dispatching timeout if there is no focused application or paused window
 // from which to determine an appropriate dispatching timeout.
-constexpr nsecs_t DEFAULT_INPUT_DISPATCHING_TIMEOUT = 5000 * 1000000LL; // 5 sec
+constexpr nsecs_t DEFAULT_INPUT_DISPATCHING_TIMEOUT = 10000 * 1000000LL; // 10 sec
 
 // Amount of time to allow for all pending events to be processed when an app switch
 // key is on the way.  This is used to preempt input dispatch and drop input events
@@ -80,7 +88,7 @@ constexpr nsecs_t APP_SWITCH_TIMEOUT = 500 * 1000000LL; // 0.5sec
 
 // Amount of time to allow for an event to be dispatched (measured since its eventTime)
 // before considering it stale and dropping it.
-constexpr nsecs_t STALE_EVENT_TIMEOUT = 10000 * 1000000LL; // 10sec
+constexpr nsecs_t STALE_EVENT_TIMEOUT = 12000 * 1000000LL; // 12sec
 
 // Amount of time to allow touch events to be streamed out to a connection before requiring
 // that the first event be finished.  This value extends the ANR timeout by the specified
@@ -107,36 +115,6 @@ static inline nsecs_t now() {
 
 static inline const char* toString(bool value) {
     return value ? "true" : "false";
-}
-
-static std::string motionActionToString(int32_t action) {
-    // Convert MotionEvent action to string
-    switch(action & AMOTION_EVENT_ACTION_MASK) {
-        case AMOTION_EVENT_ACTION_DOWN:
-            return "DOWN";
-        case AMOTION_EVENT_ACTION_MOVE:
-            return "MOVE";
-        case AMOTION_EVENT_ACTION_UP:
-            return "UP";
-        case AMOTION_EVENT_ACTION_POINTER_DOWN:
-            return "POINTER_DOWN";
-        case AMOTION_EVENT_ACTION_POINTER_UP:
-            return "POINTER_UP";
-    }
-    return StringPrintf("%" PRId32, action);
-}
-
-static std::string keyActionToString(int32_t action) {
-    // Convert KeyEvent action to string
-    switch (action) {
-        case AKEY_EVENT_ACTION_DOWN:
-            return "DOWN";
-        case AKEY_EVENT_ACTION_UP:
-            return "UP";
-        case AKEY_EVENT_ACTION_MULTIPLE:
-            return "MULTIPLE";
-    }
-    return StringPrintf("%" PRId32, action);
 }
 
 static std::string dispatchModeToString(int32_t dispatchMode) {
@@ -276,6 +254,20 @@ InputDispatcher::InputDispatcher(const sp<InputDispatcherPolicyInterface>& polic
     mKeyRepeatState.lastKeyEntry = nullptr;
 
     policy->getDispatcherConfiguration(&mConfig);
+
+    // SPRD: Switch log by command @{
+    char buf[PROPERTY_VALUE_MAX];
+    property_get("persist.sys.input.log", buf, "false");
+    if(!strcmp(buf,"true")){
+        gInputDispatcherLog = true;
+        ALOGD("InputDispatcher constructor debug log is enabled");
+	InputChannel::switchInputTransportLog(gInputDispatcherLog);
+    } else if (!strcmp(buf, "false")) {
+        gInputDispatcherLog = false;
+        ALOGD("InputDispatcher constructor debug log is disabled");
+	InputChannel::switchInputTransportLog(gInputDispatcherLog);
+    }
+    // @}
 }
 
 InputDispatcher::~InputDispatcher() {
@@ -574,6 +566,7 @@ sp<InputWindowHandle> InputDispatcher::findTouchedWindowAtLocked(int32_t display
             }
         }
     }
+    ALOGD("window handle is null");
     return nullptr;
 }
 
@@ -862,7 +855,8 @@ bool InputDispatcher::dispatchKeyLocked(nsecs_t currentTime, KeyEntry* entry,
             if (entry->interceptKeyWakeupTime < *nextWakeupTime) {
                 *nextWakeupTime = entry->interceptKeyWakeupTime;
             }
-            return false; // wait until next wakeup
+            ALOGD("wait until next wakeup");
+            return false;
         }
         entry->interceptKeyResult = KeyEntry::INTERCEPT_KEY_RESULT_UNKNOWN;
         entry->interceptKeyWakeupTime = 0;
@@ -881,7 +875,8 @@ bool InputDispatcher::dispatchKeyLocked(nsecs_t currentTime, KeyEntry* entry,
             }
             commandEntry->keyEntry = entry;
             entry->refCount += 1;
-            return false; // wait for the command to run
+            ALOGD("wait for the command to run");
+            return false;
         } else {
             entry->interceptKeyResult = KeyEntry::INTERCEPT_KEY_RESULT_CONTINUE;
         }
@@ -904,6 +899,7 @@ bool InputDispatcher::dispatchKeyLocked(nsecs_t currentTime, KeyEntry* entry,
     int32_t injectionResult = findFocusedWindowTargetsLocked(currentTime,
             entry, inputTargets, nextWakeupTime);
     if (injectionResult == INPUT_EVENT_INJECTION_PENDING) {
+        ALOGD("dispatchKeyLocked injectionResult is %d",injectionResult);
         return false;
     }
 
@@ -966,6 +962,7 @@ bool InputDispatcher::dispatchMotionLocked(
                 entry, inputTargets, nextWakeupTime);
     }
     if (injectionResult == INPUT_EVENT_INJECTION_PENDING) {
+        ALOGD("dispatchMotionLocked: injectionResult is %d",injectionResult);
         return false;
     }
 
@@ -2320,6 +2317,7 @@ void InputDispatcher::finishDispatchCycleLocked(nsecs_t currentTime,
 
     if (connection->status == Connection::STATUS_BROKEN
             || connection->status == Connection::STATUS_ZOMBIE) {
+        ALOGD("connection broken or zombie, status is %d",connection->status);
         return;
     }
 
@@ -2467,6 +2465,7 @@ void InputDispatcher::synthesizeCancelationEventsForInputChannelLocked(
 void InputDispatcher::synthesizeCancelationEventsForConnectionLocked(
         const sp<Connection>& connection, const CancelationOptions& options) {
     if (connection->status == Connection::STATUS_BROKEN) {
+        ALOGD("connection broken, status is %d",connection->status);
         return;
     }
 
@@ -2507,6 +2506,7 @@ void InputDispatcher::synthesizeCancelationEventsForConnectionLocked(
                 target.windowXScale = windowInfo->windowXScale;
                 target.windowYScale = windowInfo->windowYScale;
             } else {
+                ALOGD("window handle is null,parameter reset.");
                 target.xOffset = 0;
                 target.yOffset = 0;
                 target.globalScaleFactor = 1.0f;
@@ -2726,7 +2726,8 @@ void InputDispatcher::notifyKey(const NotifyKeyArgs* args) {
 
             policyFlags |= POLICY_FLAG_FILTERED;
             if (!mPolicy->filterInputEvent(&event, policyFlags)) {
-                return; // event was consumed by the filter
+                ALOGD("Key event was consumed by the filter!");
+                return;
             }
 
             mLock.lock();
@@ -2809,7 +2810,8 @@ void InputDispatcher::notifyMotion(const NotifyMotionArgs* args) {
 
             policyFlags |= POLICY_FLAG_FILTERED;
             if (!mPolicy->filterInputEvent(&event, policyFlags)) {
-                return; // event was consumed by the filter
+                ALOGD("Motion event was consumed by the filter!");
+                return;
             }
 
             mLock.lock();
@@ -3147,6 +3149,7 @@ sp<InputWindowHandle> InputDispatcher::getWindowHandleLocked(
             }
         }
     }
+    ALOGD("Window handle is NULL.");
     return nullptr;
 }
 
@@ -4196,6 +4199,7 @@ void InputDispatcher::doInterceptKeyBeforeDispatchingLockedInterruptible(
 
     mLock.lock();
 
+    ALOGD("delay time is %" PRId64"",delay);
     if (delay < 0) {
         entry->interceptKeyResult = KeyEntry::INTERCEPT_KEY_RESULT_SKIP;
     } else if (!delay) {
@@ -4496,6 +4500,20 @@ void InputDispatcher::traceWaitQueueLength(const sp<Connection>& connection) {
 void InputDispatcher::dump(std::string& dump) {
     std::scoped_lock _l(mLock);
 
+    // SPRD: Switch log by command @{
+    char buf[PROPERTY_VALUE_MAX];
+    property_get("persist.sys.input.log", buf, "false");
+    if(!strcmp(buf,"true")){
+        gInputDispatcherLog = true;
+        ALOGD("Input dispatcher debug log is enabled");
+        InputChannel::switchInputTransportLog(gInputDispatcherLog);
+    } else if (!strcmp(buf, "false")) {
+        gInputDispatcherLog = false;
+        ALOGD("Input dispatcher debug log is disabled");
+        InputChannel::switchInputTransportLog(gInputDispatcherLog);
+    }
+    // @}
+
     dump += "Input Dispatcher State:\n";
     dumpDispatchStateLocked(dump);
 
@@ -4614,11 +4632,7 @@ InputDispatcher::KeyEntry::~KeyEntry() {
 }
 
 void InputDispatcher::KeyEntry::appendDescription(std::string& msg) const {
-    msg += StringPrintf("KeyEvent(deviceId=%d, source=0x%08x, displayId=%" PRId32 ", action=%s, "
-            "flags=0x%08x, keyCode=%d, scanCode=%d, metaState=0x%08x, "
-            "repeatCount=%d), policyFlags=0x%08x",
-            deviceId, source, displayId, keyActionToString(action).c_str(), flags, keyCode,
-            scanCode, metaState, repeatCount, policyFlags);
+    msg += StringPrintf("KeyEvent");
 }
 
 void InputDispatcher::KeyEntry::recycle() {
@@ -4661,21 +4675,7 @@ InputDispatcher::MotionEntry::~MotionEntry() {
 }
 
 void InputDispatcher::MotionEntry::appendDescription(std::string& msg) const {
-    msg += StringPrintf("MotionEvent(deviceId=%d, source=0x%08x, displayId=%" PRId32
-            ", action=%s, actionButton=0x%08x, flags=0x%08x, metaState=0x%08x, buttonState=0x%08x, "
-            "classification=%s, edgeFlags=0x%08x, xPrecision=%.1f, yPrecision=%.1f, pointers=[",
-            deviceId, source, displayId, motionActionToString(action).c_str(), actionButton, flags,
-            metaState, buttonState, motionClassificationToString(classification), edgeFlags,
-            xPrecision, yPrecision);
-
-    for (uint32_t i = 0; i < pointerCount; i++) {
-        if (i) {
-            msg += ", ";
-        }
-        msg += StringPrintf("%d: (%.1f, %.1f)", pointerProperties[i].id,
-                pointerCoords[i].getX(), pointerCoords[i].getY());
-    }
-    msg += StringPrintf("]), policyFlags=0x%08x", policyFlags);
+    msg += StringPrintf("MotionEvent");
 }
 
 

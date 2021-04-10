@@ -51,6 +51,7 @@ cc_library_shared {
         "SurfaceComposerClient.cpp",
         "SyncFeatures.cpp",
         "view/Surface.cpp",
+        ":libleakdetect",
     ],
 
     shared_libs: [

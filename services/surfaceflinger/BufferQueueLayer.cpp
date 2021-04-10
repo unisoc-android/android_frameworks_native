@@ -473,13 +473,12 @@ void BufferQueueLayer::onFrameAvailable(const BufferItem& item) {
     mFlinger->mInterceptor->saveBufferUpdate(this, item.mGraphicBuffer->getWidth(),
                                              item.mGraphicBuffer->getHeight(), item.mFrameNumber);
 
-    // If this layer is orphaned, then we run a fake vsync pulse so that
-    // dequeueBuffer doesn't block indefinitely.
-    if (isRemovedFromCurrentState()) {
-        fakeVsync();
-    } else {
-        mFlinger->signalLayerUpdate();
+    if(isRemovedFromCurrentState()){
+        mRefreshPending = false;
+        mFlinger->markLayerRemovedFromBufferQueueLocked(this);
     }
+
+    mFlinger->signalLayerUpdate();
     mConsumer->onBufferAvailable(item);
 }
 
@@ -547,7 +546,10 @@ void BufferQueueLayer::onFirstRef() {
     }
 }
 
-status_t BufferQueueLayer::setDefaultBufferProperties(uint32_t w, uint32_t h, PixelFormat format) {
+status_t BufferQueueLayer::setDefaultBufferProperties(uint32_t w, uint32_t h, PixelFormat format) 
+{
+
+    uint32_t usage=0;
     uint32_t const maxSurfaceDims =
           std::min(mFlinger->getMaxTextureSize(), mFlinger->getMaxViewportDims());
 
@@ -562,9 +564,18 @@ status_t BufferQueueLayer::setDefaultBufferProperties(uint32_t w, uint32_t h, Pi
 
     setDefaultBufferSize(w, h);
     mConsumer->setDefaultBufferFormat(format);
-    mConsumer->setConsumerUsageBits(getEffectiveUsage(0));
+    usage=getEffectiveUsage(0);
 
-    return NO_ERROR;
+    if((!strcmp(mName.string(),"com.tencent.mobileqq/com.tencent.mobileqq.activity.FriendProfileCardActivity#1")) || (!strcmp(mName.string(),"com.kaola/com.kaola.modules.qrcode.QrCodeActivity#0")) || (!strcmp(mName.string(),"com.hunantv.imgo.activity/com.mgtv.ui.player.VodPlayerPageActivity#0")) || (!strcmp(mName.string(),"SurfaceView - com.tencent.mobileqq/com.tencent.mobileqq.minigame.ui.GameActivity3#0")) || (!strcmp(mName.string(),"com.sankuai.meituan/com.meituan.android.scan.CustomCaptureActivity#0")) || (!strcmp(mName.string(),"com.twitter.android/com.twitter.camera.controller.root.CameraActivity#0")) || (!strcmp(mName.string(),"com.icbc/com.icbc.activity.qrcode.QRCodeScanActivity#0")) || (!strcmp(mName.string(),"air.tv.douyu.android/air.tv.douyu.android.loader.a.ActivityN1STPNTS1#0")) || (!strcmp(mName.string(),"SurfaceView - com.tencent.mobileqq/com.tencent.av.ui.AVActivity#0")) || (!strcmp(mName.string(),"com.tencent.mobileqq/com.tencent.av.ui.AVActivity#0")) || (!strcmp(mName.string(),"com.tencent.mobileqq/com.tencent.mobileqq.activity.QQSettingMsgHistoryActivity#1")) || (!strcmp(mName.string(),"com.tencent.mobileqq/com.tencent.mobileqq.minigame.ui.GameActivity3#0")) || (!strcmp(mName.string(),"com.tencent.mobileqq/com.tencent.mobileqq.activity.PublicFragmentActivity#1")))
+    {
+
+     usage |= GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN;
+
+    }
+    mConsumer->setConsumerUsageBits(usage);
+
+   return NO_ERROR;
+
 }
 
 sp<IGraphicBufferProducer> BufferQueueLayer::getProducer() const {

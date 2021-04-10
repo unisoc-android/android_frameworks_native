@@ -30,7 +30,7 @@ bool ShouldStartServiceAndWait(int argc, char* argv[]) {
     bool do_wait = false;
     int c;
     // Keep flags in sync with Dumpstate::DumpOptions::Initialize.
-    while ((c = getopt(argc, argv, "wdho:svqzpPBRSV:")) != -1 && !do_wait) {
+    while ((c = getopt(argc, argv, "wcdho:svqzpPBRSV:")) != -1 && !do_wait) {  // Bug 1194677 [SDBG] Print CpuInfo
         switch (c) {
             case 'w':
                 do_wait = true;

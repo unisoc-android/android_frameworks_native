@@ -172,6 +172,8 @@ private:
     const int mDisplayInstallOrientation;
     const std::shared_ptr<compositionengine::Display> mCompositionDisplay;
 
+    int mEnabledSR = 0;
+
     std::string mDisplayName;
     const bool mIsVirtual;
 
@@ -326,6 +328,11 @@ public:
         const ui::Transform finalTransform =
                 rotation * translatePhysical * scale * translateLogical;
         return finalTransform.transform(mSourceCrop);
+    }
+
+    void updateCropSR() {
+        mReqHeight = mDevice->getHeight();
+        mReqWidth = mDevice->getWidth();
     }
 
 private:

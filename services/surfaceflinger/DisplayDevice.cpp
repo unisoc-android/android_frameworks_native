@@ -37,6 +37,8 @@
 #include "Layer.h"
 #include "SurfaceFlinger.h"
 
+#include <cutils/properties.h>
+
 namespace android {
 
 using android::base::StringAppendF;
@@ -65,6 +67,10 @@ DisplayDevice::DisplayDevice(DisplayDeviceCreationArgs&& args)
         mOrientation(),
         mActiveConfig(0),
         mIsPrimary(args.isPrimary) {
+    char value[PROPERTY_VALUE_MAX];
+    property_get("ro.sprd.superresolution", value, "0");
+    mEnabledSR = atoi(value);
+
     mCompositionDisplay->createRenderSurface(
             compositionengine::RenderSurfaceCreationArgs{ANativeWindow_getWidth(
                                                                  args.nativeWindow.get()),
@@ -207,11 +213,19 @@ void DisplayDevice::setProjection(int orientation,
     mOrientation = orientation;
 
     const Rect& displayBounds = getCompositionDisplay()->getState().bounds;
-    const int w = displayBounds.width();
-    const int h = displayBounds.height();
+    int w = displayBounds.width();
+    int h = displayBounds.height();
 
     ui::Transform R;
     DisplayDevice::orientationToTransfrom(orientation, w, h, &R);
+
+    if (mEnabledSR) {
+        if (isPrimary() && (frame.getWidth() * frame.getHeight() != w * h) &&
+            (frame.getWidth() > frame.getHeight())) {
+            w = frame.getHeight();
+            h = frame.getWidth();
+        }
+    }
 
     if (!frame.isValid()) {
         // the destination frame can be invalid if it has never been set,
@@ -280,6 +294,17 @@ void DisplayDevice::setProjection(int orientation,
                                            displayStateOrientationToTransformOrientation(
                                                    orientation),
                                            frame, viewport, scissor, needsFiltering);
+	if (mEnabledSR) {
+    ALOGI_IF((isPrimary()),"SPRD_SR setProjection(),display_size(%4dx%4d), v:[%d,%d,%d,%d], f:[%d,%d,%d,%d], s:[%d,%d,%d,%d],"
+            "transform:[[%0.3f,%0.3f,%0.3f][%0.3f,%0.3f,%0.3f][%0.3f,%0.3f,%0.3f]]\n",
+            w, h,
+            viewport.left, viewport.top, viewport.right, viewport.bottom,
+            frame.left, frame.top, frame.right, frame.bottom,
+            scissor.left, scissor.top, scissor.right, scissor.bottom,
+            globalTransform[0][0], globalTransform[1][0], globalTransform[2][0],
+            globalTransform[0][1], globalTransform[1][1], globalTransform[2][1],
+            globalTransform[0][2], globalTransform[1][2], globalTransform[2][2]);
+	}
 }
 
 uint32_t DisplayDevice::getPrimaryDisplayOrientationTransform() {

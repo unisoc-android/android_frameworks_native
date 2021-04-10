@@ -158,6 +158,19 @@ bool collect_profiles(std::vector<std::string>* profiles_paths);
 
 void drop_capabilities(uid_t uid);
 
+//SPRD: add for backup app @{
+int _backup_app(const char* pkgname, const char* dest_path, int uid, int gid);
+int _restore_app(const char* src_path, const char* pkgname, int uid, int gid);
+// @}
+
+bool convertUuidController();
+extern bool CONVERT_UUID_CONTROLLER;
+int isPublicSdCard(const char* volume_uuid);
+std::string getSdcardPath();
+
+//SPRD: add for copy libjiagu.so files to data/data/pkgName/.jiagu @{
+int _copy_file_to_dir(const char* src_file, const char* tar_file, const char* tar_dir, const char* pkgname, int uid, int gid);
+
 }  // namespace installd
 }  // namespace android
 

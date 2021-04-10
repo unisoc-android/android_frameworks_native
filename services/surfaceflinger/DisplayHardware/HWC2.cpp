@@ -832,7 +832,9 @@ Error Layer::setBuffer(uint32_t slot, const sp<GraphicBuffer>& buffer,
     }
     mBufferSlot = slot;
 
-    int32_t fenceFd = acquireFence->dup();
+    int32_t fenceFd = -1;
+    if (!mSkipSRFrame)
+        fenceFd = acquireFence->dup();
     auto intError = mComposer.setLayerBuffer(mDisplayId, mId, slot, buffer,
                                              fenceFd);
     return static_cast<Error>(intError);
@@ -1043,6 +1045,11 @@ Error Layer::setColorTransform(const android::mat4& matrix) {
     }
     mColorMatrix = matrix;
     return error;
+}
+
+void Layer::setSkipFlag(bool skip)
+{
+    mSkipSRFrame = skip;
 }
 
 } // namespace impl

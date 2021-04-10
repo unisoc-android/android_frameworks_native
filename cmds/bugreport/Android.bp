@@ -3,4 +3,5 @@ cc_binary {
     srcs: ["bugreport.cpp"],
     cflags: ["-Wall", "-Werror"],
     shared_libs: ["libcutils"],
+    init_rc: ["bugreport.rc"],
 }

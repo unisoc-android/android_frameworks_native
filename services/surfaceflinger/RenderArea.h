@@ -80,9 +80,10 @@ public:
 
     virtual const sp<const DisplayDevice> getDisplayDevice() const = 0;
 
+public:
+    uint32_t mReqWidth;
+    uint32_t mReqHeight;
 private:
-    const uint32_t mReqWidth;
-    const uint32_t mReqHeight;
     const ui::Dataspace mReqDataSpace;
     const CaptureFill mCaptureFill;
     const ui::Transform::orientation_flags mRotationFlags;

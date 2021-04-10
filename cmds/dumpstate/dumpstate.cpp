@@ -1680,6 +1680,110 @@ static void DumpstateWifiOnly() {
     printf("========================================================\n");
 }
 
+// Bug 1194677 [SDBG] This method collects cpu runtime info
+static void DumpstateSprdRTCpuInfo() {
+    FILE *stream;
+    char *line = NULL;
+    size_t len = 0;
+    std::string read_limit = android::base::GetProperty("ro.debuggable", "");
+    const char *sprd_rt_cpuinfo = "/sys/kernel/debug/sprd_debug/cpu/cpu_usage";
+
+    if (!read_limit.empty()) {
+        if (read_limit == "0") {  //user version can't read sprd_rt_cpuinfo node
+            return;
+        }
+    }
+
+    MYSLOGD("Starting to show Sprd runtime cpuInfo\n");
+
+    stream = fopen(sprd_rt_cpuinfo, "r");
+    if (stream == NULL) {
+        MYSLOGE("Can't open(%s): %s\n", sprd_rt_cpuinfo, strerror(errno));
+        return;
+    }
+
+    while (getline(&line, &len, stream) != -1) {
+        MYSLOGD("%s", line);
+    }
+
+    MYSLOGD("Ending to show Sprd runtime cpuInfo\n");
+
+    free(line);
+    fclose(stream);
+}
+//bug1187711 add a new bugreport mode specially for RescueParty
+static const char* persistentDataDir[] = {
+    "/data/tombstones/",
+};
+static const char*  persistentDataFiles[]={
+    "/data/system/users/0/app_idle_stats.xml",
+    "/data/system/users/0/appwidgets.xml",
+    "/data/system/users/0/package-restrictions.xml",
+    "/data/system/users/0/roles.xml",
+    "/data/system/users/0/runtime-permissions.xml",
+    "/data/system/users/0/settings_global.xml",
+    "/data/system/users/0/settings_secure.xml",
+    "/data/system/users/0/settings_ssaid.xml",
+    "/data/system/users/0/settings_system.xml",
+    "/data/system/users/0/wallpaper_info.xml",
+    "/data/user_de/0/com.android.phone/shared_prefs/_has_set_default_values.xml",
+    "/data/user_de/0/com.android.phone/shared_prefs/com.android.phone_preferences.xml",
+    "/data/user_de/0/com.android.phone/files/carrierconfig-com.android.carrierconfig-vender.xml.xml",
+    "/data/user_de/0/com.spreadtrum.vce/files/mme.ini",
+    "/data/user_de/0/com.android.systemui/shared_prefs/com.android.systemui.xml",
+    "/data/user_de/0/com.android.systemui/shared_prefs/plugin_prefs.xml",
+};
+static void RescuePartyDataFinished(){
+    MYLOGE("RescuePartyDataFinished rescueParty_only=%d\n",ds.options_->rescueParty_only);
+    if(ds.options_->rescueParty_only){
+        //set dumpstate.options.RescueOk as 1 to notify system_server of dumpstate ending
+        android::base::SetProperty("dumpstate.options.RescueOk", "1");
+        MYLOGE("moveRescuePartyFile2Sdcard dumpstate.options.RescueOk=1\n");
+    }
+}
+void DumpFile2Zip(const std::string& entry_name, const std::string& entry_path){
+    const std::string temppath = ds.bugreport_internal_dir_ + "/tempdumpfile";
+    auto fd = android::base::unique_fd(TEMP_FAILURE_RETRY(open(temppath.c_str(),
+                    O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW,
+                    S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)));
+    if (fd.get() < 0) {
+        printf("open %s failed: %s\n", entry_path.c_str(), strerror(errno));
+        return;
+    }
+    DumpFileToFd(fd, "", entry_path.c_str());
+    ds.AddZipEntry(entry_name, temppath);
+    unlink(temppath.c_str());
+}
+static void dumpRescueProcessData(){
+    int sum = sizeof(persistentDataDir)/sizeof(persistentDataDir[0]);
+    MYLOGE("persistentDataDir sum:%d\n",sum);
+    for(int i = 0; i < sum; i++){
+        ds.AddDir(persistentDataDir[i],true);
+    }
+    sum = sizeof(persistentDataFiles)/sizeof(persistentDataFiles[0]);
+    MYLOGE("persistentDataFiles sum:%d\n",sum);
+    for(int j=0; j<sum; j++){
+        DumpFile2Zip(ZIP_ROOT_DIR + persistentDataFiles[j], persistentDataFiles[j]);
+    }
+}
+static void DumpstateRescuePartyOnly() {
+    unsigned long timeout_ms;
+    RunCommand("FILESYSTEMS & FREE SPACE", {"df"});
+    timeout_ms = logcat_timeout({"main", "system", "crash"});
+    RunCommand("SYSTEM LOG",
+               {"logcat", "-v", "threadtime", "-v", "printable", "-v", "uid", "-d", "*:v"},
+               CommandOptions::WithTimeoutInMs(timeout_ms).Build());
+    timeout_ms = logcat_timeout({"events"});
+    RunCommand(
+        "EVENT LOG",
+        {"logcat", "-b", "events", "-v", "threadtime", "-v", "printable", "-v", "uid", "-d", "*:v"},
+        CommandOptions::WithTimeoutInMs(timeout_ms).Build());
+    do_dmesg();
+
+    dumpRescueProcessData();
+}
+//bug1187711 end
+
 Dumpstate::RunStatus Dumpstate::DumpTraces(const char** path) {
     DurationReporter duration_reporter("DUMP TRACES");
 
@@ -1906,6 +2010,7 @@ static void ShowUsage() {
             "usage: dumpstate [-h] [-b soundfile] [-e soundfile] [-o file] [-d] [-p] "
             "[-z]] [-s] [-S] [-q] [-B] [-P] [-R] [-V version]\n"
             "  -h: display this help message\n"
+            "  -c: display cpu usage\n"
             "  -b: play sound file instead of vibrate, at beginning of job\n"
             "  -e: play sound file instead of vibrate, at end of job\n"
             "  -o: write to file (instead of stdout)\n"
@@ -2067,6 +2172,10 @@ static void PrepareToWriteToFile() {
         ds.base_name_ += "-telephony";
     } else if (ds.options_->wifi_only) {
         ds.base_name_ += "-wifi";
+    } else if (ds.options_->rescueParty_only) {
+        //bug1187711
+        ds.base_name_ = "RescueParty";
+        ds.name_ = "Log";
     }
 
     if (ds.options_->do_fb) {
@@ -2089,6 +2198,10 @@ static void PrepareToWriteToFile() {
         ds.tmp_path_.c_str(), ds.screenshot_path_.c_str());
 
     if (ds.options_->do_zip_file) {
+        if(ds.options_->rescueParty_only){
+            //Bug: 1187711, RescueData use the fixed name /data/anr/RescueParty-Log.zip
+            ds.bugreport_internal_dir_ = "/data/anr";
+        }
         ds.path_ = ds.GetPath(".zip");
         MYLOGD("Creating initial .zip file (%s)\n", ds.path_.c_str());
         create_parent_dirs(ds.path_.c_str());
@@ -2232,6 +2345,8 @@ static inline const char* ModeToString(Dumpstate::BugreportMode mode) {
             return "BUGREPORT_TELEPHONY";
         case Dumpstate::BugreportMode::BUGREPORT_WIFI:
             return "BUGREPORT_WIFI";
+        case Dumpstate::BugreportMode::BUGREPORT_RESCUEPARTY:
+            return "BUGREPORT_RESCUEPARTY";  //Bug1187711
         case Dumpstate::BugreportMode::BUGREPORT_DEFAULT:
             return "BUGREPORT_DEFAULT";
     }
@@ -2275,6 +2390,11 @@ static void SetOptionsFromMode(Dumpstate::BugreportMode mode, Dumpstate::DumpOpt
             options->do_fb = false;
             options->do_broadcast = true;
             break;
+        case Dumpstate::BugreportMode::BUGREPORT_RESCUEPARTY:
+            //bug1187711
+            options->rescueParty_only = true;
+            options->do_zip_file = true;
+            break;
         case Dumpstate::BugreportMode::BUGREPORT_DEFAULT:
             break;
     }
@@ -2300,6 +2420,9 @@ static Dumpstate::BugreportMode getBugreportModeFromProperty() {
             mode = Dumpstate::BugreportMode::BUGREPORT_TELEPHONY;
         } else if (extra_options == "bugreportwifi") {
             mode = Dumpstate::BugreportMode::BUGREPORT_WIFI;
+        }  else if (extra_options == "bugreportrescue") {
+            //Bug:1187711 
+            mode = Dumpstate::BugreportMode::BUGREPORT_RESCUEPARTY;
         } else {
             MYLOGE("Unknown extra option: %s\n", extra_options.c_str());
         }
@@ -2341,9 +2464,11 @@ static void LogDumpOptions(const Dumpstate::DumpOptions& options) {
     MYLOGI("do_broadcast: %d\n", options.do_broadcast);
     MYLOGI("is_remote_mode: %d\n", options.is_remote_mode);
     MYLOGI("show_header_only: %d\n", options.show_header_only);
+    MYLOGI("show_sprd_rt_cpuinfo: %d\n", options.show_sprd_rt_cpuinfo);  // Bug 1194677 [SDBG] Print CpuInfo
     MYLOGI("do_start_service: %d\n", options.do_start_service);
     MYLOGI("telephony_only: %d\n", options.telephony_only);
     MYLOGI("wifi_only: %d\n", options.wifi_only);
+    MYLOGI("rescueParty_only: %d\n", options.rescueParty_only); //bug1187711
     MYLOGI("do_progress_updates: %d\n", options.do_progress_updates);
     MYLOGI("fd: %d\n", options.bugreport_fd.get());
     MYLOGI("extra_options: %s\n", options.extra_options.c_str());
@@ -2371,7 +2496,7 @@ void Dumpstate::DumpOptions::Initialize(BugreportMode bugreport_mode,
 Dumpstate::RunStatus Dumpstate::DumpOptions::Initialize(int argc, char* argv[]) {
     RunStatus status = RunStatus::OK;
     int c;
-    while ((c = getopt(argc, argv, "dho:svqzpPBRSV:w")) != -1) {
+    while ((c = getopt(argc, argv, "cdho:svqzpPBRSV:w")) != -1) {
         switch (c) {
             // clang-format off
             case 'd': do_add_date = true;            break;
@@ -2388,6 +2513,7 @@ Dumpstate::RunStatus Dumpstate::DumpOptions::Initialize(int argc, char* argv[]) 
             case 'R': is_remote_mode = true;         break;
             case 'B': do_broadcast = true;           break;
             case 'V':                                break;  // compatibility no-op
+            case 'c': show_sprd_rt_cpuinfo = true;   break;  // Bug 1194677 [SDBG] Print CpuInfo
             case 'w':
                 // This was already processed
                 break;
@@ -2530,6 +2656,12 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
         return RunStatus::OK;
     }
 
+    // Bug 1194677 [SDBG] Print CpuInfo
+    if (options_->show_sprd_rt_cpuinfo) {
+        DumpstateSprdRTCpuInfo();
+        return RunStatus::OK;
+    }
+
     if (options_->bugreport_fd.get() != -1) {
         // If the output needs to be copied over to the caller's fd, get user consent.
         android::String16 package(calling_package.c_str());
@@ -2636,7 +2768,12 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
     }
 
     if (options_->do_zip_file && zip_file != nullptr) {
-        if (chown(path_.c_str(), AID_SHELL, AID_SHELL)) {
+        if(options_->rescueParty_only){
+            //bug1187711: RescueParty.zip should be system.
+            if (chown(path_.c_str(), AID_SYSTEM, AID_SYSTEM)) 
+                MYLOGE("Unable to change ownership of zip file %s: %s\n", path_.c_str(),
+                       strerror(errno));
+        }else if (chown(path_.c_str(), AID_SHELL, AID_SHELL)) {
             MYLOGE("Unable to change ownership of zip file %s: %s\n", path_.c_str(),
                    strerror(errno));
         }
@@ -2684,6 +2821,9 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
         DumpstateBoard();
     } else if (options_->wifi_only) {
         DumpstateWifiOnly();
+    } else if (options_->rescueParty_only) {
+        //bug1187711
+        DumpstateRescuePartyOnly();
     } else {
         // Dump state for the default case. This also drops root.
         RunStatus s = DumpstateDefault();
@@ -2703,6 +2843,8 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
     // Rename, and/or zip the (now complete) .tmp file within the internal directory.
     if (options_->OutputToFile()) {
         FinalizeFile();
+        //bug1187711
+        RescuePartyDataFinished();
     }
 
     // Share the final file with the caller if the user has consented.

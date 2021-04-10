@@ -16,3 +16,4 @@ service servicemanager /system/bin/servicemanager
     onrestart restart thermalservice
     writepid /dev/cpuset/system-background/tasks
     shutdown critical
+    rlimit rtprio 10 10

@@ -58,6 +58,9 @@ std::string android_profiles_dir;
 std::string android_root_dir;
 std::string android_staging_dir;
 
+std::string android_app_preload_dir;
+std::string android_app_vital_dir;
+
 std::vector<std::string> android_system_dirs;
 
 bool init_globals_from_data_and_root() {
@@ -122,6 +125,11 @@ bool init_globals_from_data_and_root(const char* data, const char* root) {
     android_system_dirs.push_back(android_root_dir + PRIV_APP_SUBDIR);
     android_system_dirs.push_back("/vendor/app/");
     android_system_dirs.push_back("/oem/app/");
+
+    /* SPRD: add feature for scan the preload and vital directory @{ */
+    android_system_dirs.push_back("/system/preloadapp/");
+    android_system_dirs.push_back("/system/vital-app/");
+    /* @} */
 
     return true;
 }

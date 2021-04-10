@@ -47,11 +47,11 @@
 
 #define IF_LOG_TRANSACTIONS() if (false)
 #define IF_LOG_COMMANDS() if (false)
-#define LOG_REMOTEREFS(...) 
+#define LOG_REMOTEREFS(...)
 #define IF_LOG_REMOTEREFS() if (false)
 
-#define LOG_THREADPOOL(...) 
-#define LOG_ONEWAY(...) 
+#define LOG_THREADPOOL(...)
+#define LOG_ONEWAY(...)
 
 #else
 
@@ -68,6 +68,12 @@
 
 namespace android {
 
+#ifndef NO_USE_PROJECT_SEC /*vendor define NO_USE_PROJECT_SEC all the time for vndk rules*/
+#ifdef USE_PROJECT_SEC /*system define USE_PROJECT_SEC when open ccsa*/
+void initKeyService(const String16& name, const sp<IBinder>& svc);
+bool doJudge(int uid, const sp<IBinder>& svc, unsigned int oprID, Parcel& data,  Parcel &reply);
+#endif /*USE_PROJECT_SEC*/
+#endif /*NO_USE_PROJECT_SEC*/
 // Static const and functions will be optimized out if not used,
 // when LOG_NDEBUG and references in IF_LOG_COMMANDS() are optimized out.
 static const char *kReturnStrings[] = {
@@ -661,7 +667,22 @@ status_t IPCThreadState::transact(int32_t handle,
             << handle << " / code " << TypeCode(code) << ": "
             << indent << data << dedent << endl;
     }
-
+#ifndef NO_USE_PROJECT_SEC /*vendor define NO_USE_PROJECT_SEC all the time for vndk rules*/
+#ifdef USE_PROJECT_SEC /*system define USE_PROJECT_SEC when open ccsa*/
+    if (handle == 0) {
+        if (code == IServiceManager::ADD_SERVICE_TRANSACTION) {
+            data.setDataPosition(0);
+            data.readInt32();
+            data.readInt32();
+            String16 service = data.readString16();
+            String16 name = data.readString16();
+            sp<IBinder> b = data.readStrongBinder();
+            data.setDataPosition(0);
+            initKeyService(name , b);
+        }
+    }
+#endif /*USE_PROJECT_SEC*/
+#endif /*NO_USE_PROJECT_SEC*/
     LOG_ONEWAY(">>>> SEND from pid %d uid %d %s", getpid(), getuid(),
         (flags & TF_ONE_WAY) == 0 ? "READ REPLY" : "ONE WAY");
     err = writeTransactionData(BC_TRANSACTION, flags, handle, code, data, nullptr);
@@ -1210,8 +1231,25 @@ status_t IPCThreadState::executeCommand(int32_t cmd)
                 // safely acquire a strong reference before doing anything else with it.
                 if (reinterpret_cast<RefBase::weakref_type*>(
                         tr.target.ptr)->attemptIncStrong(this)) {
+
+#ifndef NO_USE_PROJECT_SEC /*vendor define NO_USE_PROJECT_SEC all the time for vndk rules*/
+#ifdef USE_PROJECT_SEC /*system define USE_PROJECT_SEC when open ccsa*/
+                    bool bFind = doJudge(mCallingUid, reinterpret_cast<BBinder*>(tr.cookie), tr.code, buffer, reply);
+                    if (!bFind) {
+                        error = NO_ERROR;
+                    } else {
+                        error = reinterpret_cast<BBinder*>(tr.cookie)->transact(tr.code, buffer,
+                                &reply, tr.flags);
+                    }
+#else
                     error = reinterpret_cast<BBinder*>(tr.cookie)->transact(tr.code, buffer,
                             &reply, tr.flags);
+#endif/*USE_PROJECT_SEC*/
+#else/*NO_USE_PROJECT_SEC*/
+                    error = reinterpret_cast<BBinder*>(tr.cookie)->transact(tr.code, buffer,
+                            &reply, tr.flags);
+#endif/*NO_USE_PROJECT_SEC*/
+
                     reinterpret_cast<BBinder*>(tr.cookie)->decStrong(this);
                 } else {
                     error = UNKNOWN_TRANSACTION;

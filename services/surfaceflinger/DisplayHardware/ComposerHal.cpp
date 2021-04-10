@@ -20,6 +20,8 @@
 #include <inttypes.h>
 #include <log/log.h>
 
+#include <cutils/properties.h>
+
 #include "ComposerHal.h"
 
 #include <composer-command-buffer/2.2/ComposerCommandBuffer.h>
@@ -162,7 +164,8 @@ void Composer::CommandWriter::writeBufferMetadata(
 
 Composer::Composer(const std::string& serviceName)
     : mWriter(kWriterInitialSize),
-      mIsUsingVrComposer(serviceName == std::string("vr"))
+      mIsUsingVrComposer(serviceName == std::string("vr")),
+      mEnabledSR(0)
 {
     mComposer = V2_1::IComposer::getService(serviceName);
 
@@ -203,6 +206,10 @@ Composer::Composer(const std::string& serviceName)
             LOG_ALWAYS_FATAL("failed to create vr composer client");
         }
     }
+
+    char value[PROPERTY_VALUE_MAX];
+    property_get("ro.sprd.superresolution", value, "0");
+    mEnabledSR = atoi(value);
 }
 
 Composer::~Composer() = default;
@@ -412,6 +419,11 @@ Error Composer::getDisplayConfigs(Display display,
         std::vector<Config>* outConfigs)
 {
     Error error = kDefaultError;
+    if (mEnabledSR) {
+        #define SPRD_SF_MAGIC	0xa75fUL
+        Display tmpdisplay = SPRD_SF_MAGIC;
+        display |= (tmpdisplay<<48);
+    }
     mClient->getDisplayConfigs(display,
             [&](const auto& tmpError, const auto& tmpConfigs) {
                 error = tmpError;

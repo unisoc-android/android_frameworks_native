@@ -208,7 +208,7 @@ status_t flatten_binder(const sp<ProcessState>& /*proc*/,
 
     if (IPCThreadState::self()->backgroundSchedulingDisabled()) {
         /* minimum priority for all nodes is nice 0 */
-        obj.flags = FLAT_BINDER_FLAG_ACCEPTS_FDS;
+        obj.flags = 0x800 | FLAT_BINDER_FLAG_ACCEPTS_FDS;
     } else {
         /* minimum priority for all nodes is MAX_NICE(19) */
         obj.flags = 0x13 | FLAT_BINDER_FLAG_ACCEPTS_FDS;
@@ -2839,11 +2839,13 @@ status_t Parcel::continueWrite(size_t desired)
             if (objectsSize == 0) {
                 free(mObjects);
                 mObjects = nullptr;
+                mObjectsCapacity = 0;
             } else {
                 binder_size_t* objects =
                     (binder_size_t*)realloc(mObjects, objectsSize*sizeof(binder_size_t));
                 if (objects) {
                     mObjects = objects;
+                    mObjectsCapacity = objectsSize;
                 }
             }
             mObjectsSize = objectsSize;

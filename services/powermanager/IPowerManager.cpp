@@ -133,6 +133,23 @@ public:
         data.writeString16(message);
         return remote()->transact(CRASH, data, &reply, 0);
     }
+
+    // NOTE:  PQ Feature BEG-->
+    virtual void setSunLightProtectOn(bool on)
+    {
+        Parcel data, reply;
+        data.writeInterfaceToken(IPowerManager::getInterfaceDescriptor());
+        data.writeInt32(on);
+        remote()->transact(SET_SUNLIGHT_ON, data, &reply, 0);
+    }
+    virtual void setSunLightProtectTemporayDisabled(bool disabled)
+    {
+        Parcel data, reply;
+        data.writeInterfaceToken(IPowerManager::getInterfaceDescriptor());
+        data.writeInt32(disabled);
+        remote()->transact(SET_SUNLIGHT_DISABLED, data, &reply, 0);
+    }
+    // <-- NOTE: PQ Feature END
 };
 
 IMPLEMENT_META_INTERFACE(PowerManager, "android.os.IPowerManager");

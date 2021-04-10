@@ -202,6 +202,8 @@ public:
     /* Returns a new object that has a duplicate of this channel's fd. */
     sp<InputChannel> dup() const;
 
+    static void switchInputTransportLog(bool enable);
+
     status_t write(Parcel& out) const;
     status_t read(const Parcel& from);
 

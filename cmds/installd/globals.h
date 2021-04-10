@@ -40,6 +40,19 @@ extern std::string android_profiles_dir;
 extern std::string android_root_dir;
 extern std::string android_staging_dir;
 
+//SPRD: add for backup app @{
+typedef struct {
+    int mode;
+    int uid;
+    int gid;
+} arg_chown;
+// @}
+
+// SPRD: add feature for scan the preload directory
+extern std::string android_app_preload_dir;
+// SPRD: add feature for scan the vital directory
+extern std::string android_app_vital_dir;
+
 extern std::vector<std::string> android_system_dirs;
 
 bool init_globals_from_data_and_root();

@@ -203,6 +203,7 @@ class Dumpstate {
         BUGREPORT_WEAR = android::os::IDumpstate::BUGREPORT_MODE_WEAR,
         BUGREPORT_TELEPHONY = android::os::IDumpstate::BUGREPORT_MODE_TELEPHONY,
         BUGREPORT_WIFI = android::os::IDumpstate::BUGREPORT_MODE_WIFI,
+        BUGREPORT_RESCUEPARTY = android::os::IDumpstate::BUGREPORT_MODE_RESCUEPARTY, //Bug:1187711
         BUGREPORT_DEFAULT = android::os::IDumpstate::BUGREPORT_MODE_DEFAULT
     };
 
@@ -354,9 +355,13 @@ class Dumpstate {
         bool do_broadcast = false;
         bool is_remote_mode = false;
         bool show_header_only = false;
+        // Bug 1194677 [SDBG] Print CpuInfo
+        bool show_sprd_rt_cpuinfo = false;
         bool do_start_service = false;
         bool telephony_only = false;
         bool wifi_only = false;
+        //bug1187711 add a new bugreport mode specially for RescueParty
+        bool rescueParty_only = false;
         // Whether progress updates should be published.
         bool do_progress_updates = false;
         // File descriptor to output zip file.

@@ -1,0 +1,6 @@
+#open bugreport
+service bugreport /system/bin/dumpstate -d -p -z -B \
+        -o /data/data/com.android.shell/files/bugreports/bugreport
+    class late_start
+    disabled
+    oneshot

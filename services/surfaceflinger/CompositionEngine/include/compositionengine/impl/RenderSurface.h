@@ -74,10 +74,10 @@ private:
     const compositionengine::Display& mDisplay;
 
     // ANativeWindow being rendered into
-    const sp<ANativeWindow> mNativeWindow;
+    sp<ANativeWindow> mNativeWindow;
     // Current buffer being rendered into
     sp<GraphicBuffer> mGraphicBuffer;
-    const sp<DisplaySurface> mDisplaySurface;
+    sp<DisplaySurface> mDisplaySurface;
     ui::Size mSize;
     bool mProtected{false};
     std::uint32_t mPageFlipCount{0};

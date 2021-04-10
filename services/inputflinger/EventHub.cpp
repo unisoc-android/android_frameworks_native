@@ -65,9 +65,13 @@
 #define INDENT2 "    "
 #define INDENT3 "      "
 
+#define ALOGD_EVENTHUB(...) if (gEventHubLog) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+
 using android::base::StringPrintf;
 
 namespace android {
+
+static bool gEventHubLog = false;
 
 static constexpr bool DEBUG = false;
 
@@ -297,6 +301,16 @@ EventHub::EventHub(void) :
     getLinuxRelease(&major, &minor);
     // EPOLLWAKEUP was introduced in kernel 3.5
     mUsingEpollWakeup = major > 3 || (major == 3 && minor >= 5);
+
+    char buf[PROPERTY_VALUE_MAX] = {0};
+    property_get("persist.sys.input.log", buf, "false");
+    if(!strcmp(buf,"true")){
+        gEventHubLog = true;
+        ALOGD("EventHub debug log is enabled");
+    } else if (!strcmp(buf, "false")) {
+        gEventHubLog = false;
+        ALOGD("EventHub debug log is disabled");
+    }
 }
 
 EventHub::~EventHub(void) {
@@ -1334,6 +1348,7 @@ status_t EventHub::openDeviceLocked(const char* devicePath) {
                 test_bit(BTN_TOUCH, device->keyBitmask))
             && !test_bit(ABS_X, device->absBitmask)
             && !test_bit(ABS_Y, device->absBitmask)) {
+        ALOGD_EVENTHUB("warning:this is a BT stylus,please check device is supported!");
         device->classes |= INPUT_DEVICE_CLASS_EXTERNAL_STYLUS;
         // Keyboard will try to claim some of the buttons but we really want to reserve those so we
         // can fuse it with the touch screen data, so just take them back. Note this means an

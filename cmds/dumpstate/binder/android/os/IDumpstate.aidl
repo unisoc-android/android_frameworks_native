@@ -61,6 +61,10 @@ interface IDumpstate {
     // Default mode.
     const int BUGREPORT_MODE_DEFAULT = 6;
 
+    // Bug:1187711
+    // New Bugreport limited to only RescueParty Info
+    const int BUGREPORT_MODE_RESCUEPARTY = 7;
+
     /*
      * Starts a bugreport in the background.
      *

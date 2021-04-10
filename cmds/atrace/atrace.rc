@@ -158,6 +158,24 @@ on late-init
     chmod 0666 /sys/kernel/tracing/events/filemap/mm_filemap_delete_from_page_cache/enable
     chmod 0666 /sys/kernel/debug/tracing/events/filemap/mm_filemap_delete_from_page_cache/enable
 
+    # sprd_img_gpu
+    chmod 0666 /sys/kernel/tracing/events/sprd_img_gpu/sprd_gpu_devfreq/enable
+    chmod 0666 /sys/kernel/debug/tracing/events/sprd_img_gpu/sprd_gpu_devfreq/enable
+
+    # sprd_ddr_dfs
+    chmod 0666 /sys/kernel/tracing/events/sprd_ddr_dfs/sprd_dfs_poll/enable
+    chmod 0666 /sys/kernel/debug/tracing/events/sprd_ddr_dfs/sprd_dfs_poll/enable
+    chmod 0666 /sys/kernel/tracing/events/sprd_ddr_dfs/sprd_dfs_sysfs/enable
+    chmod 0666 /sys/kernel/debug/tracing/events/sprd_ddr_dfs/sprd_dfs_sysfs/enable
+    chmod 0666 /sys/kernel/tracing/events/sprd_ddr_dfs/sprd_scene/enable
+    chmod 0666 /sys/kernel/debug/tracing/events/sprd_ddr_dfs/sprd_scene/enable
+
+    # thermal
+    chmod 0666 /sys/kernel/tracing/events/thermal/thermal_temperature/enable
+    chmod 0666 /sys/kernel/debug/tracing/events/thermal/thermal_temperature/enable
+    chmod 0666 /sys/kernel/tracing/events/thermal/thermal_power_cpu_limit/enable
+    chmod 0666 /sys/kernel/debug/tracing/events/thermal/thermal_power_cpu_limit/enable
+
 # Tracing disabled by default
     write /sys/kernel/debug/tracing/tracing_on 0
     write /sys/kernel/tracing/tracing_on 0

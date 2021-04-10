@@ -50,6 +50,10 @@ public:
         REBOOT_SAFE_MODE             = IBinder::FIRST_CALL_TRANSACTION + 18,
         SHUTDOWN                     = IBinder::FIRST_CALL_TRANSACTION + 19,
         CRASH                        = IBinder::FIRST_CALL_TRANSACTION + 20,
+        // NOTE:  PQ Feature BEG-->
+        SET_SUNLIGHT_ON            = IBinder::FIRST_CALL_TRANSACTION + 33,
+        SET_SUNLIGHT_DISABLED            = IBinder::FIRST_CALL_TRANSACTION + 34,
+        // <-- NOTE: PQ Feature END
     };
 
     DECLARE_META_INTERFACE(PowerManager)
@@ -69,6 +73,11 @@ public:
     virtual status_t reboot(bool confirm, const String16& reason, bool wait) = 0;
     virtual status_t shutdown(bool confirm, const String16& reason, bool wait) = 0;
     virtual status_t crash(const String16& message) = 0;
+
+    // NOTE:  PQ Feature BEG-->
+    virtual void setSunLightProtectOn(bool on) = 0;
+    virtual void setSunLightProtectTemporayDisabled(bool disabled) = 0;
+    // <-- NOTE: PQ Feature END
 };
 
 // ----------------------------------------------------------------------------

@@ -1013,12 +1013,12 @@ status_t BufferQueueProducer::queueBuffer(int slot,
             getFrameTimestamps ? &output->frameTimestamps : nullptr);
 
     // Wait without lock held
-    if (connectedApi == NATIVE_WINDOW_API_EGL) {
-        // Waiting here allows for two full buffers to be queued but not a
-        // third. In the event that frames take varying time, this makes a
-        // small trade-off in favor of latency rather than throughput.
-        lastQueuedFence->waitForever("Throttling EGL Production");
-    }
+    //if (connectedApi == NATIVE_WINDOW_API_EGL) {
+    //    // Waiting here allows for two full buffers to be queued but not a
+    //    // third. In the event that frames take varying time, this makes a
+    //    // small trade-off in favor of latency rather than throughput.
+    //    lastQueuedFence->waitForever("Throttling EGL Production");
+    //}
 
     return NO_ERROR;
 }

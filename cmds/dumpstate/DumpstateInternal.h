@@ -44,6 +44,19 @@
     ALOGE(__VA_ARGS__);
 #endif
 
+// Bug 1194677 [SDBG] Print CpuInfo
+#ifndef MYSLOGD
+#define MYSLOGD(...)               \
+    fprintf(stderr, __VA_ARGS__); \
+    SLOGD(__VA_ARGS__);
+#endif
+
+#ifndef MYSLOGE
+#define MYSLOGE(...)               \
+    fprintf(stderr, __VA_ARGS__); \
+    SLOGE(__VA_ARGS__);
+#endif
+
 // Internal functions used by .cpp files on multiple build targets.
 // TODO: move to android::os::dumpstate::internal namespace
 

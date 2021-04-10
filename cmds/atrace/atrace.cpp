@@ -229,12 +229,26 @@ static const TracingCategory k_categories[] = {
         { OPT,      "events/binder/binder_unlock/enable" },
     } },
     { "pagecache",  "Page cache", 0, {
-        { REQ,      "events/filemap/enable" },
+        { OPT,      "events/filemap/enable" },
+        { OPT,      "events/filemap/mm_filemap_add_to_page_cache/enable" },
+        { OPT,      "events/filemap/mm_filemap_delete_from_page_cache/enable" },
     } },
     { "memory",  "Memory", 0, {
         { OPT,      "events/kmem/rss_stat/enable" },
         { OPT,      "events/kmem/ion_heap_grow/enable" },
         { OPT,      "events/kmem/ion_heap_shrink/enable" },
+    } },
+    { "sprd_img_gpu",  "Spreadtrum Gpu", 0, {
+        { REQ,      "events/sprd_img_gpu/sprd_gpu_devfreq/enable" },
+    } },
+    { "sprd_ddr_dfs",  "Spreadtrum Ddr", 0, {
+        { REQ,      "events/sprd_ddr_dfs/sprd_dfs_poll/enable" },
+        { REQ,      "events/sprd_ddr_dfs/sprd_dfs_sysfs/enable" },
+        { REQ,      "events/sprd_ddr_dfs/sprd_scene/enable" },
+    } },
+    { "thermal",  "Spreadtrum Thermal", 0, {
+        { REQ,      "events/thermal/thermal_temperature/enable" },
+        { REQ,      "events/thermal/thermal_power_cpu_limit/enable" },
     } },
 };
 

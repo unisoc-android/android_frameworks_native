@@ -155,6 +155,12 @@ public:
             const std::string& codePath, const std::unique_ptr<std::string>& dexMetadata,
             bool* _aidl_return);
 
+    //SPRD: add for backup app @{
+    binder::Status backupApp(const std::string& pkgName, const std::string& destPath, int32_t callUid, int32_t callGid, int32_t* _aidl_return);
+    binder::Status restoreApp(const std::string& sourcePath, const std::string& pkgName, int32_t uid, int32_t gid, int32_t* _aidl_return);
+    // @}
+    binder::Status copyFileToDir(const std::string& sourceFile, const std::string& targetFile, 
+            const std::string& targetDir, const std::string& pkgName, int32_t uid, int32_t gid, int32_t* _aidl_return);
     binder::Status migrateLegacyObbData();
 
 private:
